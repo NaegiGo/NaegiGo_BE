@@ -1,5 +1,5 @@
 ---
-name: '🐞E [FIx] 간단한 요약'
+name: '🐞 [FIx] 간단한 요약'
 about: BugFix Template
 title: '🐞 [FIx] 간단한 요약'
 labels: ''
