@@ -4,11 +4,145 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
+}
+
+enum AuthType {
+  BUTTON
+  PHOTO
+}
+
+enum AuthStatus {
+  DONE
+  FAIL
+  MISS
+}
+
+enum RoomRole {
+  OWNER
+  MEMBER
+}
+
+enum SocialProvider {
+  KAKAO
+}
+
+model User {
+  id              BigInt  @id @default(autoincrement())
+  name            String  @db.VarChar(10)
+  profileImageUrl String? @map("profile_image_url") @db.VarChar(500)
+  avatarTint      Int     @map("avatar_tint")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  socialAccounts SocialAccount[]
+  roomMembers    RoomMember[]
+  authLogs       RoomAuthLog[]
+  roomResults    RoomResult[]
+
+  @@map("users")
+}
+
+model SocialAccount {
+  id         BigInt         @id @default(autoincrement())
+  userId     BigInt         @map("user_id")
+  provider   SocialProvider
+  providerId String         @map("provider_id") @db.VarChar(255)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerId])
+  @@map("social_accounts")
+}
+
+model Room {
+  id              BigInt    @id @default(autoincrement())
+  name            String    @db.VarChar(255)
+  goal            String    @db.Text
+  penalty         String    @db.Text
+  currentAuthType AuthType  @map("current_auth_type")
+  pendingAuthType AuthType? @map("pending_auth_type")
+  effectiveDate   DateTime? @map("effective_date") @db.Date
+
+  targetWeekdays String @map("target_weekdays") @db.VarChar(20)
+
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+
+  code String @unique @db.VarChar(255)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  members  RoomMember[]
+  authLogs RoomAuthLog[]
+  results  RoomResult[]
+
+  @@map("rooms")
+}
+
+model RoomMember {
+  id       BigInt    @id @default(autoincrement())
+  userId   BigInt    @map("user_id")
+  roomId   BigInt    @map("room_id")
+  role     RoomRole
+  joinedAt DateTime  @default(now()) @map("joined_at")
+  leftAt   DateTime? @map("left_at")
+
+  user User @relation(fields: [userId], references: [id])
+  room Room @relation(fields: [roomId], references: [id])
+
+  @@map("room_members")
+}
+
+model RoomAuthLog {
+  id        BigInt     @id @default(autoincrement())
+  userId    BigInt     @map("user_id")
+  roomId    BigInt     @map("room_id")
+  authType  AuthType   @map("auth_type")
+  status    AuthStatus
+  checkDate DateTime   @map("check_date") @db.Date
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User       @relation(fields: [userId], references: [id])
+  room  Room       @relation(fields: [roomId], references: [id])
+  image AuthImage?
+
+  @@unique([userId, roomId, checkDate])
+  @@map("room_auth_logs")
+}
+
+model AuthImage {
+  id        BigInt @id @default(autoincrement())
+  authLogId BigInt @unique @map("auth_log_id")
+  imageUrl  String @map("image_url") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  authLog RoomAuthLog @relation(fields: [authLogId], references: [id])
+
+  @@map("auth_images")
+}
+
+model RoomResult {
+  id              BigInt @id @default(autoincrement())
+  userId          BigInt @map("user_id")
+  roomId          BigInt @map("room_id")
+  nameSnapshot    String @map("name_snapshot") @db.VarChar(10)
+  rank            Int
+  achievementRate Int    @map("achievement_rate")
+
+  user User @relation(fields: [userId], references: [id])
+  room Room @relation(fields: [roomId], references: [id])
+
+  @@map("room_results")
 }
