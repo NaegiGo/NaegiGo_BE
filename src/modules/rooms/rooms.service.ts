@@ -39,7 +39,7 @@ export class RoomsService {
           goal: validated.goal,
           penalty: validated.penalty,
           currentAuthType: validated.authType,
-          targetWeekdays: this.serializeWeekdays(validated.targetWeekdays),
+          targetWeekdays: validated.targetWeekdays as Prisma.InputJsonValue,
           startDate: validated.startDate,
           endDate: validated.endDate,
           code,
@@ -64,7 +64,7 @@ export class RoomsService {
       goal: room.goal,
       penalty: room.penalty,
       authType: room.currentAuthType,
-      targetWeekdays: this.parseWeekdays(room.targetWeekdays),
+      targetWeekdays: this.readWeekdays(room.targetWeekdays),
       startDate: room.startDate.toISOString(),
       endDate: room.endDate.toISOString(),
       myRole: RoomRole.OWNER,
@@ -86,6 +86,14 @@ export class RoomsService {
     const nextAuthType = body.authType ?? room.currentAuthType;
     const shouldScheduleAuthTypeChange = nextAuthType !== room.currentAuthType;
     const shouldApplyAuthTypeImmediately = !hasStarted && shouldScheduleAuthTypeChange;
+    const persistedWeekdays = this.readWeekdays(
+      room.targetWeekdays,
+    ) as Prisma.InputJsonValue;
+    const nextTargetWeekdays: Prisma.InputJsonValue = hasStarted
+      ? persistedWeekdays
+      : body.targetWeekdays
+        ? this.validateWeekdays(body.targetWeekdays)
+        : persistedWeekdays;
 
     const updatedRoom = await this.prisma.room.update({
       where: { id: room.id },
@@ -93,11 +101,7 @@ export class RoomsService {
         name: body.name?.trim() ?? room.name,
         goal: hasStarted ? room.goal : (body.goal?.trim() ?? room.goal),
         penalty: hasStarted ? room.penalty : (body.penalty?.trim() ?? room.penalty),
-        targetWeekdays: hasStarted
-          ? room.targetWeekdays
-          : body.targetWeekdays
-            ? this.serializeWeekdays(this.validateWeekdays(body.targetWeekdays))
-            : room.targetWeekdays,
+        targetWeekdays: nextTargetWeekdays,
         startDate: hasStarted ? room.startDate : startDate,
         endDate: hasStarted ? room.endDate : endDate,
         currentAuthType: shouldApplyAuthTypeImmediately ? nextAuthType : room.currentAuthType,
@@ -169,7 +173,7 @@ export class RoomsService {
       goal: room.goal,
       penalty: room.penalty,
       authType: room.pendingAuthType ?? room.currentAuthType,
-      targetWeekdays: this.parseWeekdays(room.targetWeekdays),
+      targetWeekdays: this.readWeekdays(room.targetWeekdays),
       startDate: room.startDate.toISOString(),
       endDate: room.endDate.toISOString(),
       status: this.getRoomStatus(room.startDate, room.endDate),
@@ -180,50 +184,59 @@ export class RoomsService {
   }
 
   async joinRoom(userId: number, roomId: number) {
-    const room = await this.getRoomWithAllMembers(roomId);
-    this.ensureRoomExists(room);
+    const joinedMember = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const room = await tx.room.findUnique({
+        where: { id: BigInt(roomId) },
+        include: {
+          members: true,
+        },
+      });
+      this.ensureRoomExists(room);
 
-    const activeMember = room.members.find(
-      (member) => Number(member.userId) === userId && member.leftAt === null,
-    );
-    if (activeMember) {
-      throw new AppException(ErrorCode.ROOM_ALREADY_JOINED);
-    }
+      const activeMember = room.members.find(
+        (member) => Number(member.userId) === userId && member.leftAt === null,
+      );
+      if (activeMember) {
+        throw new AppException(ErrorCode.ROOM_ALREADY_JOINED);
+      }
 
-    if (this.getRoomStatus(room.startDate, room.endDate) !== 'BEFORE_START') {
-      throw new AppException(ErrorCode.ROOM_ALREADY_STARTED);
-    }
+      if (this.getRoomStatus(room.startDate, room.endDate) !== 'BEFORE_START') {
+        throw new AppException(ErrorCode.ROOM_ALREADY_STARTED);
+      }
 
-    const activeMemberCount = room.members.filter(
-      (member) => member.leftAt === null,
-    ).length;
-    if (activeMemberCount >= 10) {
-      throw new AppException(ErrorCode.ROOM_MEMBER_LIMIT_EXCEEDED);
-    }
+      const activeMemberCount = room.members.filter(
+        (member) => member.leftAt === null,
+      ).length;
+      if (activeMemberCount >= 10) {
+        throw new AppException(ErrorCode.ROOM_MEMBER_LIMIT_EXCEEDED);
+      }
 
-    const existingMember = room.members.find(
-      (member) => Number(member.userId) === userId && member.leftAt !== null,
-    );
+      const existingMember = room.members.find(
+        (member) => Number(member.userId) === userId && member.leftAt !== null,
+      );
 
-    const joinedMember = existingMember
-      ? await this.prisma.roomMember.update({
+      if (existingMember) {
+        return tx.roomMember.update({
           where: { id: existingMember.id },
           data: {
             leftAt: null,
             joinedAt: new Date(),
             role: RoomRole.MEMBER,
           },
-        })
-      : await this.prisma.roomMember.create({
-          data: {
-            roomId: room.id,
-            userId: BigInt(userId),
-            role: RoomRole.MEMBER,
-          },
         });
+      }
+
+      return tx.roomMember.create({
+        data: {
+          roomId: BigInt(roomId),
+          userId: BigInt(userId),
+          role: RoomRole.MEMBER,
+        },
+      });
+    });
 
     return {
-      roomId: Number(room.id),
+      roomId,
       role: joinedMember.role,
       joinedAt: joinedMember.joinedAt.toISOString(),
     };
@@ -268,7 +281,7 @@ export class RoomsService {
       currentAuthType: room.currentAuthType,
       pendingAuthType: room.pendingAuthType,
       effectiveDate: room.effectiveDate ? this.formatDateOnly(room.effectiveDate) : null,
-      targetWeekdays: this.parseWeekdays(room.targetWeekdays),
+      targetWeekdays: this.readWeekdays(room.targetWeekdays),
       startDate: room.startDate.toISOString(),
       endDate: room.endDate.toISOString(),
       status: this.getRoomStatus(room.startDate, room.endDate),
@@ -354,12 +367,14 @@ export class RoomsService {
     return unique;
   }
 
-  private serializeWeekdays(weekdays: number[]) {
-    return weekdays.join(',');
-  }
+  private readWeekdays(raw: Prisma.JsonValue) {
+    if (!Array.isArray(raw)) {
+      return [];
+    }
 
-  private parseWeekdays(raw: string) {
-    return raw.split(',').filter(Boolean).map((value) => Number(value));
+    return raw
+      .map((value) => Number(value))
+      .filter((value) => Number.isInteger(value));
   }
 
   private getRoomStatus(startDate: Date, endDate: Date) {

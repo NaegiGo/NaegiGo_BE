@@ -70,7 +70,7 @@ model Room {
   pendingAuthType AuthType? @map("pending_auth_type")
   effectiveDate   DateTime? @map("effective_date") @db.Date
 
-  targetWeekdays String @map("target_weekdays") @db.VarChar(20)
+  targetWeekdays Json @map("target_weekdays")
 
   startDate DateTime @map("start_date")
   endDate   DateTime @map("end_date")
