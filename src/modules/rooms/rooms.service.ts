@@ -186,15 +186,15 @@ export class RoomsService {
     const room = await this.getRoomWithAllMembers(roomId);
     this.ensureRoomExists(room);
 
-    if (this.getRoomStatus(room.startDate, room.endDate) !== 'BEFORE_START') {
-      throw new AppException(ErrorCode.ROOM_ALREADY_STARTED);
-    }
-
     const activeMember = room.members.find(
       (member) => Number(member.userId) === userId && member.leftAt === null,
     );
     if (activeMember) {
       throw new AppException(ErrorCode.ROOM_ALREADY_JOINED);
+    }
+
+    if (this.getRoomStatus(room.startDate, room.endDate) !== 'BEFORE_START') {
+      throw new AppException(ErrorCode.ROOM_ALREADY_STARTED);
     }
 
     const existingMember = room.members.find(
