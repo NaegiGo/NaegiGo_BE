@@ -84,6 +84,8 @@ export class RoomsService {
     const hasStarted = this.getRoomStatus(room.startDate, room.endDate) !== 'BEFORE_START';
     const nextDay = this.getNextDayDateString();
     const nextAuthType = body.authType ?? room.currentAuthType;
+    const shouldScheduleAuthTypeChange = nextAuthType !== room.currentAuthType;
+    const shouldApplyAuthTypeImmediately = !hasStarted && shouldScheduleAuthTypeChange;
 
     const updatedRoom = await this.prisma.room.update({
       where: { id: room.id },
@@ -98,16 +100,11 @@ export class RoomsService {
             : room.targetWeekdays,
         startDate: hasStarted ? room.startDate : startDate,
         endDate: hasStarted ? room.endDate : endDate,
-        currentAuthType:
-          hasStarted || nextAuthType === room.currentAuthType
-            ? room.currentAuthType
-            : nextAuthType,
+        currentAuthType: shouldApplyAuthTypeImmediately ? nextAuthType : room.currentAuthType,
         pendingAuthType:
-          hasStarted && nextAuthType !== room.currentAuthType ? nextAuthType : null,
+          hasStarted && shouldScheduleAuthTypeChange ? nextAuthType : null,
         effectiveDate:
-          hasStarted && nextAuthType !== room.currentAuthType
-            ? new Date(nextDay)
-            : null,
+          hasStarted && shouldScheduleAuthTypeChange ? new Date(nextDay) : null,
       },
     });
 
