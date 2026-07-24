@@ -23,7 +23,7 @@ export class UsersService {
   async createWithSocialAccount(params: {
     provider: SocialProvider;
     providerId: string;
-    name: string | null;
+    name: string;
     profileImageUrl: string | null;
   }): Promise<User> {
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {

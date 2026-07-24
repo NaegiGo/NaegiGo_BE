@@ -36,7 +36,7 @@ export class AuthService {
       (await this.usersService.createWithSocialAccount({
         provider: SocialProvider.KAKAO,
         providerId: kakaoUser.id,
-        name: null,
+        name: this.truncateName(kakaoUser.nickname),
         profileImageUrl: kakaoUser.profileImageUrl,
       }));
 
@@ -71,5 +71,9 @@ export class AuthService {
       profileImageUrl: user.profileImageUrl,
       avatarTint: user.avatarTint,
     };
+  }
+
+  private truncateName(name: string) {
+    return name.slice(0, 10);
   }
 }

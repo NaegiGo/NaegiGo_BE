@@ -34,7 +34,7 @@ enum SocialProvider {
 
 model User {
   id              BigInt  @id @default(autoincrement())
-  name            String? @db.VarChar(10)
+  name            String  @db.VarChar(10)
   profileImageUrl String? @map("profile_image_url") @db.VarChar(500)
   avatarTint      Int     @map("avatar_tint")
 
