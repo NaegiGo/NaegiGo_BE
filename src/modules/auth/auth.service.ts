@@ -15,7 +15,22 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async loginWithKakao(kakaoAccessToken: string): Promise<KakaoLoginResponseDto> {
+  getKakaoLoginUrl() {
+    return this.kakaoService.getAuthorizationUrl();
+  }
+
+  async loginWithKakaoCode(code: string): Promise<KakaoLoginResponseDto> {
+    if (!code) {
+      throw new AppException(ErrorCode.KAKAO_AUTH_CODE_REQUIRED);
+    }
+
+    const kakaoAccessToken = await this.kakaoService.getAccessToken(code);
+    return this.loginWithKakaoAccessToken(kakaoAccessToken);
+  }
+
+  private async loginWithKakaoAccessToken(
+    kakaoAccessToken: string,
+  ): Promise<KakaoLoginResponseDto> {
     const jwtSecret = process.env.JWT_SECRET;
     const accessTokenExpiresIn = process.env.JWT_ACCESS_EXPIRES_IN ?? '1h';
     const refreshTokenExpiresIn = process.env.JWT_REFRESH_EXPIRES_IN ?? '14d';
