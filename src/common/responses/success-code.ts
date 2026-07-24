@@ -7,6 +7,9 @@ export const SuccessCode = {
 
   // Auth
   KAKAO_LOGIN_SUCCESS: {status: HttpStatus.OK, code: 'AUTH200', message: '로그인에 성공했습니다.'},
+
+  // User
+  USER_NAME_UPDATED: {status: HttpStatus.OK, code: 'USER200', message: '이름이 등록되었습니다.'},
 } as const;
 
 export type SuccessCodeType = (typeof SuccessCode)[keyof typeof SuccessCode];
