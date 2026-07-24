@@ -15,6 +15,18 @@ export const ErrorCode = {
 
   // User
   INVALID_USER_NAME: {status: HttpStatus.BAD_REQUEST, code: 'USER400', message: '이름은 2자 이상 10자 이하로 입력해주세요.'},
+
+  // Room
+  INVALID_ROOM_DATE_RANGE: {status: HttpStatus.BAD_REQUEST, code: 'ROOM400_1', message: '종료일은 시작일보다 이후여야 합니다.'},
+  ROOM_MEMBER_ONLY: {status: HttpStatus.FORBIDDEN, code: 'ROOM403_1', message: '참여 중인 방만 조회할 수 있습니다.'},
+  ROOM_OWNER_REQUIRED_TO_UPDATE: {status: HttpStatus.FORBIDDEN, code: 'ROOM403_2', message: '방장만 방 정보를 수정할 수 있습니다.'},
+  ROOM_OWNER_REQUIRED_TO_DELETE: {status: HttpStatus.FORBIDDEN, code: 'ROOM403_3', message: '방장만 방을 삭제할 수 있습니다.'},
+  ROOM_OWNER_CANNOT_LEAVE: {status: HttpStatus.FORBIDDEN, code: 'ROOM403_4', message: '방장은 방을 나갈 수 없습니다. 방을 삭제해주세요.'},
+  ROOM_NOT_FOUND: {status: HttpStatus.NOT_FOUND, code: 'ROOM404', message: '방을 찾을 수 없습니다.'},
+  ROOM_MEMBER_NOT_FOUND: {status: HttpStatus.NOT_FOUND, code: 'ROOM404_1', message: '참여 중인 방이 아닙니다.'},
+  ROOM_ALREADY_JOINED: {status: HttpStatus.CONFLICT, code: 'ROOM409_1', message: '이미 참여한 방입니다.'},
+  ROOM_ALREADY_STARTED: {status: HttpStatus.CONFLICT, code: 'ROOM409_2', message: '이미 시작된 방에는 참여할 수 없습니다.'},
+  ROOM_MEMBER_LIMIT_EXCEEDED: {status: HttpStatus.CONFLICT, code: 'ROOM409_3', message: '참여 인원이 가득 찬 방입니다.'},
 } as const;
 
 export type ErrorCodeType = (typeof ErrorCode)[keyof typeof ErrorCode];
