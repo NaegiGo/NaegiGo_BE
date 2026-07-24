@@ -194,6 +194,13 @@ export class RoomsService {
       throw new AppException(ErrorCode.ROOM_ALREADY_STARTED);
     }
 
+    const activeMemberCount = room.members.filter(
+      (member) => member.leftAt === null,
+    ).length;
+    if (activeMemberCount >= 10) {
+      throw new AppException(ErrorCode.ROOM_MEMBER_LIMIT_EXCEEDED);
+    }
+
     const existingMember = room.members.find(
       (member) => Number(member.userId) === userId && member.leftAt !== null,
     );

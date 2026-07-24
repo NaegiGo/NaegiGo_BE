@@ -26,6 +26,7 @@ export const ErrorCode = {
   ROOM_MEMBER_NOT_FOUND: {status: HttpStatus.NOT_FOUND, code: 'ROOM404_1', message: '참여 중인 방이 아닙니다.'},
   ROOM_ALREADY_JOINED: {status: HttpStatus.CONFLICT, code: 'ROOM409_1', message: '이미 참여한 방입니다.'},
   ROOM_ALREADY_STARTED: {status: HttpStatus.CONFLICT, code: 'ROOM409_2', message: '이미 시작된 방에는 참여할 수 없습니다.'},
+  ROOM_MEMBER_LIMIT_EXCEEDED: {status: HttpStatus.CONFLICT, code: 'ROOM409_3', message: '참여 인원이 가득 찬 방입니다. (10명 제한)'},
 } as const;
 
 export type ErrorCodeType = (typeof ErrorCode)[keyof typeof ErrorCode];
