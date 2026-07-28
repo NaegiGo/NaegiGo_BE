@@ -77,8 +77,10 @@ export class RoomsService {
     this.ensureRoomExists(room);
     this.ensureOwner(room.members, userId, ErrorCode.ROOM_OWNER_REQUIRED_TO_UPDATE);
 
-    const startDate = body.startDate ? new Date(body.startDate) : room.startDate;
-    const endDate = body.endDate ? new Date(body.endDate) : room.endDate;
+    const startDate = body.startDate
+      ? this.parseDateTimeKst(body.startDate)
+      : room.startDate;
+    const endDate = body.endDate ? this.parseDateTimeKst(body.endDate) : room.endDate;
     this.ensureValidDateRange(startDate, endDate);
 
     const hasStarted = this.getRoomStatus(room.startDate, room.endDate) !== 'BEFORE_START';
@@ -341,8 +343,8 @@ export class RoomsService {
   }
 
   private validateRoomInput(body: CreateRoomRequestDto) {
-    const startDate = new Date(body.startDate);
-    const endDate = new Date(body.endDate);
+    const startDate = this.parseDateTimeKst(body.startDate);
+    const endDate = this.parseDateTimeKst(body.endDate);
     this.ensureValidDateRange(startDate, endDate);
 
     return {
@@ -360,6 +362,34 @@ export class RoomsService {
     if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate <= startDate) {
       throw new AppException(ErrorCode.INVALID_ROOM_DATE_RANGE);
     }
+  }
+
+  private parseDateTimeKst(value: string) {
+    const match = value.match(
+      /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/,
+    );
+
+    if (!match) {
+      const fallback = new Date(value);
+      if (Number.isNaN(fallback.getTime())) {
+        throw new AppException(ErrorCode.INVALID_ROOM_DATE_RANGE);
+      }
+
+      return fallback;
+    }
+
+    const [, year, month, day, hour, minute, second = '00'] = match;
+
+    return new Date(
+      Date.UTC(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour) - 9,
+        Number(minute),
+        Number(second),
+      ),
+    );
   }
 
   private validateWeekdays(weekdays: number[]) {
@@ -417,9 +447,20 @@ export class RoomsService {
   }
 
   private getNextDayDateString() {
-    const nextDay = new Date();
-    nextDay.setDate(nextDay.getDate() + 1);
-    return new Date(nextDay.getFullYear(), nextDay.getMonth(), nextDay.getDate()).toISOString();
+    const now = new Date();
+    const kstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+    kstNow.setUTCDate(kstNow.getUTCDate() + 1);
+
+    return new Date(
+      Date.UTC(
+        kstNow.getUTCFullYear(),
+        kstNow.getUTCMonth(),
+        kstNow.getUTCDate() - 1,
+        15,
+        0,
+        0,
+      ),
+    ).toISOString();
   }
 
   private formatDateOnly(date: Date) {
