@@ -65,8 +65,8 @@ export class RoomsService {
       penalty: room.penalty,
       authType: room.currentAuthType,
       targetWeekdays: this.readWeekdays(room.targetWeekdays),
-      startDate: room.startDate.toISOString(),
-      endDate: room.endDate.toISOString(),
+      startDate: this.formatDateTimeKst(room.startDate),
+      endDate: this.formatDateTimeKst(room.endDate),
       myRole: RoomRole.OWNER,
       memberCount: 1,
     };
@@ -174,8 +174,8 @@ export class RoomsService {
       penalty: room.penalty,
       authType: room.pendingAuthType ?? room.currentAuthType,
       targetWeekdays: this.readWeekdays(room.targetWeekdays),
-      startDate: room.startDate.toISOString(),
-      endDate: room.endDate.toISOString(),
+      startDate: this.formatDateTimeKst(room.startDate),
+      endDate: this.formatDateTimeKst(room.endDate),
       status: this.getRoomStatus(room.startDate, room.endDate),
       dDay: this.getDDay(room.startDate),
       memberCount: room.members.length,
@@ -238,7 +238,7 @@ export class RoomsService {
     return {
       roomId,
       role: joinedMember.role,
-      joinedAt: joinedMember.joinedAt.toISOString(),
+      joinedAt: this.formatDateTimeKst(joinedMember.joinedAt),
     };
   }
 
@@ -282,8 +282,8 @@ export class RoomsService {
       pendingAuthType: room.pendingAuthType,
       effectiveDate: room.effectiveDate ? this.formatDateOnly(room.effectiveDate) : null,
       targetWeekdays: this.readWeekdays(room.targetWeekdays),
-      startDate: room.startDate.toISOString(),
-      endDate: room.endDate.toISOString(),
+      startDate: this.formatDateTimeKst(room.startDate),
+      endDate: this.formatDateTimeKst(room.endDate),
       status: this.getRoomStatus(room.startDate, room.endDate),
       dDay: this.getDDay(room.startDate),
       myRole: me.role,
@@ -423,6 +423,12 @@ export class RoomsService {
   }
 
   private formatDateOnly(date: Date) {
-    return date.toISOString().slice(0, 10);
+    const kstDate = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+    return kstDate.toISOString().slice(0, 10);
+  }
+
+  private formatDateTimeKst(date: Date) {
+    const kstDate = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+    return kstDate.toISOString().slice(0, 19);
   }
 }
