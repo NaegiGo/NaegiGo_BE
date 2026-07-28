@@ -65,8 +65,8 @@ export class RoomsService {
       penalty: room.penalty,
       authType: room.currentAuthType,
       targetWeekdays: this.readWeekdays(room.targetWeekdays),
-      startDate: room.startDate.toISOString(),
-      endDate: room.endDate.toISOString(),
+      startDate: this.formatDateTimeKst(room.startDate),
+      endDate: this.formatDateTimeKst(room.endDate),
       myRole: RoomRole.OWNER,
       memberCount: 1,
     };
@@ -77,8 +77,10 @@ export class RoomsService {
     this.ensureRoomExists(room);
     this.ensureOwner(room.members, userId, ErrorCode.ROOM_OWNER_REQUIRED_TO_UPDATE);
 
-    const startDate = body.startDate ? new Date(body.startDate) : room.startDate;
-    const endDate = body.endDate ? new Date(body.endDate) : room.endDate;
+    const startDate = body.startDate
+      ? this.parseDateTimeKst(body.startDate)
+      : room.startDate;
+    const endDate = body.endDate ? this.parseDateTimeKst(body.endDate) : room.endDate;
     this.ensureValidDateRange(startDate, endDate);
 
     const hasStarted = this.getRoomStatus(room.startDate, room.endDate) !== 'BEFORE_START';
@@ -174,8 +176,8 @@ export class RoomsService {
       penalty: room.penalty,
       authType: room.pendingAuthType ?? room.currentAuthType,
       targetWeekdays: this.readWeekdays(room.targetWeekdays),
-      startDate: room.startDate.toISOString(),
-      endDate: room.endDate.toISOString(),
+      startDate: this.formatDateTimeKst(room.startDate),
+      endDate: this.formatDateTimeKst(room.endDate),
       status: this.getRoomStatus(room.startDate, room.endDate),
       dDay: this.getDDay(room.startDate),
       memberCount: room.members.length,
@@ -238,7 +240,7 @@ export class RoomsService {
     return {
       roomId,
       role: joinedMember.role,
-      joinedAt: joinedMember.joinedAt.toISOString(),
+      joinedAt: this.formatDateTimeKst(joinedMember.joinedAt),
     };
   }
 
@@ -282,8 +284,8 @@ export class RoomsService {
       pendingAuthType: room.pendingAuthType,
       effectiveDate: room.effectiveDate ? this.formatDateOnly(room.effectiveDate) : null,
       targetWeekdays: this.readWeekdays(room.targetWeekdays),
-      startDate: room.startDate.toISOString(),
-      endDate: room.endDate.toISOString(),
+      startDate: this.formatDateTimeKst(room.startDate),
+      endDate: this.formatDateTimeKst(room.endDate),
       status: this.getRoomStatus(room.startDate, room.endDate),
       dDay: this.getDDay(room.startDate),
       myRole: me.role,
@@ -341,8 +343,8 @@ export class RoomsService {
   }
 
   private validateRoomInput(body: CreateRoomRequestDto) {
-    const startDate = new Date(body.startDate);
-    const endDate = new Date(body.endDate);
+    const startDate = this.parseDateTimeKst(body.startDate);
+    const endDate = this.parseDateTimeKst(body.endDate);
     this.ensureValidDateRange(startDate, endDate);
 
     return {
@@ -362,6 +364,34 @@ export class RoomsService {
     }
   }
 
+  private parseDateTimeKst(value: string) {
+    const match = value.match(
+      /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/,
+    );
+
+    if (!match) {
+      const fallback = new Date(value);
+      if (Number.isNaN(fallback.getTime())) {
+        throw new AppException(ErrorCode.INVALID_ROOM_DATE_RANGE);
+      }
+
+      return fallback;
+    }
+
+    const [, year, month, day, hour, minute, second = '00'] = match;
+
+    return new Date(
+      Date.UTC(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour) - 9,
+        Number(minute),
+        Number(second),
+      ),
+    );
+  }
+
   private validateWeekdays(weekdays: number[]) {
     const unique = Array.from(new Set(weekdays)).sort((a, b) => a - b);
     return unique;
@@ -378,13 +408,15 @@ export class RoomsService {
   }
 
   private getRoomStatus(startDate: Date, endDate: Date) {
-    const now = new Date();
+    const now = this.getCurrentKstDate();
+    const kstStartDate = this.toKstDate(startDate);
+    const kstEndDate = this.toKstDate(endDate);
 
-    if (now < startDate) {
+    if (now < kstStartDate) {
       return 'BEFORE_START';
     }
 
-    if (now > endDate) {
+    if (now > kstEndDate) {
       return 'ENDED';
     }
 
@@ -392,10 +424,8 @@ export class RoomsService {
   }
 
   private getDDay(startDate: Date) {
-    const today = new Date();
-    const start = new Date(startDate);
-    const normalizedToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const normalizedStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const normalizedToday = this.getKstDateStart(this.getCurrentKstDate());
+    const normalizedStart = this.getKstDateStart(startDate);
     const diffMs = normalizedStart.getTime() - normalizedToday.getTime();
     return Math.floor(diffMs / (1000 * 60 * 60 * 24));
   }
@@ -417,12 +447,40 @@ export class RoomsService {
   }
 
   private getNextDayDateString() {
-    const nextDay = new Date();
-    nextDay.setDate(nextDay.getDate() + 1);
-    return new Date(nextDay.getFullYear(), nextDay.getMonth(), nextDay.getDate()).toISOString();
+    const nextDayKst = this.getCurrentKstDate();
+    nextDayKst.setUTCDate(nextDayKst.getUTCDate() + 1);
+    return this.getKstDateStart(nextDayKst).toISOString();
   }
 
   private formatDateOnly(date: Date) {
-    return date.toISOString().slice(0, 10);
+    const kstDate = this.toKstDate(date);
+    return kstDate.toISOString().slice(0, 10);
+  }
+
+  private formatDateTimeKst(date: Date) {
+    const kstDate = this.toKstDate(date);
+    return kstDate.toISOString().slice(0, 19);
+  }
+
+  private getCurrentKstDate() {
+    return this.toKstDate(new Date());
+  }
+
+  private toKstDate(date: Date) {
+    return new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  }
+
+  private getKstDateStart(date: Date) {
+    const kstDate = this.toKstDate(date);
+    return new Date(
+      Date.UTC(
+        kstDate.getUTCFullYear(),
+        kstDate.getUTCMonth(),
+        kstDate.getUTCDate(),
+        0,
+        0,
+        0,
+      ) - 9 * 60 * 60 * 1000,
+    );
   }
 }
