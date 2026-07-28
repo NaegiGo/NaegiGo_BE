@@ -408,13 +408,15 @@ export class RoomsService {
   }
 
   private getRoomStatus(startDate: Date, endDate: Date) {
-    const now = new Date();
+    const now = this.getCurrentKstDate();
+    const kstStartDate = this.toKstDate(startDate);
+    const kstEndDate = this.toKstDate(endDate);
 
-    if (now < startDate) {
+    if (now < kstStartDate) {
       return 'BEFORE_START';
     }
 
-    if (now > endDate) {
+    if (now > kstEndDate) {
       return 'ENDED';
     }
 
@@ -422,10 +424,8 @@ export class RoomsService {
   }
 
   private getDDay(startDate: Date) {
-    const today = new Date();
-    const start = new Date(startDate);
-    const normalizedToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const normalizedStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const normalizedToday = this.getKstDateStart(this.getCurrentKstDate());
+    const normalizedStart = this.getKstDateStart(startDate);
     const diffMs = normalizedStart.getTime() - normalizedToday.getTime();
     return Math.floor(diffMs / (1000 * 60 * 60 * 24));
   }
@@ -447,29 +447,40 @@ export class RoomsService {
   }
 
   private getNextDayDateString() {
-    const now = new Date();
-    const kstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-    kstNow.setUTCDate(kstNow.getUTCDate() + 1);
-
-    return new Date(
-      Date.UTC(
-        kstNow.getUTCFullYear(),
-        kstNow.getUTCMonth(),
-        kstNow.getUTCDate() - 1,
-        15,
-        0,
-        0,
-      ),
-    ).toISOString();
+    const nextDayKst = this.getCurrentKstDate();
+    nextDayKst.setUTCDate(nextDayKst.getUTCDate() + 1);
+    return this.getKstDateStart(nextDayKst).toISOString();
   }
 
   private formatDateOnly(date: Date) {
-    const kstDate = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+    const kstDate = this.toKstDate(date);
     return kstDate.toISOString().slice(0, 10);
   }
 
   private formatDateTimeKst(date: Date) {
-    const kstDate = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+    const kstDate = this.toKstDate(date);
     return kstDate.toISOString().slice(0, 19);
+  }
+
+  private getCurrentKstDate() {
+    return this.toKstDate(new Date());
+  }
+
+  private toKstDate(date: Date) {
+    return new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  }
+
+  private getKstDateStart(date: Date) {
+    const kstDate = this.toKstDate(date);
+    return new Date(
+      Date.UTC(
+        kstDate.getUTCFullYear(),
+        kstDate.getUTCMonth(),
+        kstDate.getUTCDate(),
+        0,
+        0,
+        0,
+      ) - 9 * 60 * 60 * 1000,
+    );
   }
 }
